@@ -10,8 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from django.conf import settings
 from django.core.mail import mail_admins
-from lxml import etree
-from lxml.builder import E
+from xml.etree import ElementTree
 
 from .forms import CheckForm
 from .forms import NoticeForm
@@ -99,15 +98,13 @@ class BaseView(View):
     def mark_payment(self, payment, cd):
         pass
 
-    def get_xml(self, params):
-        element = self.get_xml_element(**params)
-        return etree.tostring(element,
-                              pretty_print=True,
-                              xml_declaration=True,
-                              encoding='UTF-8')
 
     def get_xml_element(self, **params):
         raise NotImplementedError()
+
+    def get_xml(self, params):
+        elem = self.get_xml_element(**params)
+        return ElementTree.tostring(elem, 'unicode', 'xml')
 
     def logging(self, request, params):
         message = 'Action %s has code %s for customerNumber "%s"' % (
@@ -127,15 +124,18 @@ class CheckOrderFormView(BaseView):
             }
             raise YandexValidationError(params=params)
 
+
     def get_xml_element(self, **params):
-        return E.checkOrderResponse(**params)
+        params = {k: six.text_type(v) for k, v in params.items()}
+        return ElementTree.Element('checkOrderResponse', attrib=params)
 
 
 class NoticeFormView(BaseView):
     form_class = NoticeForm
 
     def get_xml_element(self, **params):
-        return E.paymentAvisoResponse(**params)
+        params = {k: six.text_type(v) for k, v in params.items()}
+        return ElementTree.Element('paymentAvisoResponse', attrib=params)
 
     def mark_payment(self, payment, cd):
         payment.cps_email = cd.get('cps_email', '')
